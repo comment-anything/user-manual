@@ -43,9 +43,13 @@
   ![Figure 1.1](./graphics/Project-Block-Diagram.png)
   
   - Figure 1.1 outlines the communicational process between the client-side browser extension and server-side HTTP server. When the user interacts with the browser extension (e.g. requesting to log in, changing a setting, posting a comment, etc.), an HTTP request is sent to the server's static IP address, containing the user's token, and a JSON (JavaScript Object Notation) of relevant data for that particular request.
-  - Once the server receives the HTTP request, it will authenticate the token, and attach the relevant UserController (e.g. Guest Controller, Member Controller, Domain Moderator Controller, Global Moderator Controller, or Admin Controller). Next, the Router will select the relevant UserControllerHandler to invoke.
-  - The selected UserControllerHandler will query the database for relevant data, compile a list of server responses, and emit those responses back to the client.
-  - Once the client receives this HTTP response, it will invoke the necessary changes for 
+  - When the server receives the HTTP request, it will first pass through middleware which authenticates the token sent with the request. If the token verifies a user's identity, that user's UserController (e.g. MemberController, AdminController, etc.) is attached to the request context [ref: go contexts](). Otherwise, a new GuestController is created for the user and attached to the request context.
+  - Next, the request reaches the server router which will select a server API endpoint handler method based on the path of the api endpoint. For example, "commentanywhere.net/login" will select "Server.postLogin".
+  - The endpoint handler will extract the expected communication entity from the request. For example, "login" expects a type of communication.Login containing a username and password. 
+  - The endpoint handler next extracts the controller that was previously attached to the request context. It calls the associated handler method on that controller. For example, "login" will call Controller.HandleCommandLogin(). It will pass to the controller handler the extracted communication entity. All controllers share an interface, and the method called is polymorphically selected.
+  - The selected UserController handler will query the database to retrieve, update, or add relevant data, depending on the type of request. In the process, it will typically add Server-Client communication entities to the Controller's nextResponse array, such as Messages and LoginResponses.
+  - When the handler is finished, a final middleware once again extracts the controller from the request context and populates the HTTP Response with the data within the controller's nextResponse array. 
+  - When the client receives this HTTP response, it will invoke the necessary changes to the user interface based on the array of communication entities it receives from the server. 
 
 - **Implementation Details**
   
